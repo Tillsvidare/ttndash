@@ -1,0 +1,67 @@
+name: Deploy TTN Dashboard to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:          # Tillåter manuell körning från Actions-fliken
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Genererar config.js från GitHub Secrets – nyckeln lagras aldrig i koden
+      - name: Generate config.js
+        env:
+          TTN_CLUSTER:        ${{ secrets.TTN_CLUSTER }}
+          TTN_APP_ID:         ${{ secrets.TTN_APP_ID }}
+          TTN_API_KEY:        ${{ secrets.TTN_API_KEY }}
+          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+        run: |
+          python3 - <<'EOF'
+          import os
+          cluster  = os.environ.get('TTN_CLUSTER') or 'eu1.cloud.thethings.network'
+          app_id   = os.environ.get('TTN_APP_ID', '')
+          api_key  = os.environ.get('TTN_API_KEY', '')
+          password = os.environ.get('DASHBOARD_PASSWORD', 'admin')
+
+          js = f"""// Auto-genererad av GitHub Actions – redigera inte manuellt
+const CONFIG = {{
+  cluster:         '{cluster}',
+  appId:           '{app_id}',
+  apiKey:          '{api_key}',
+  password:        '{password}',
+  refreshInterval: 30000,
+  historyLimit:    50,
+}};"""
+          with open('config.js', 'w') as f:
+              f.write(js)
+          print("config.js generated")
+          EOF
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

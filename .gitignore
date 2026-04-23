@@ -1,2 +1,3 @@
-# Lägg inte in din riktiga config.js i git om den innehåller API-nycklar
-# config.js
+# config.js committas MED platshållarvärden.
+# GitHub Actions skriver över den med riktiga värden från Secrets vid deployment.
+# Lägg ALDRIG in en fil med riktiga API-nycklar här.
