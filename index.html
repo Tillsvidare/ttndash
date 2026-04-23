@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TTN Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --bg:          #0d1117;
+      --surface:     #161b22;
+      --surface2:    #21262d;
+      --border:      #30363d;
+      --accent:      #7c3aed;
+      --accent-h:    #6d28d9;
+      --accent-glow: rgba(124,58,237,.15);
+      --text:        #e6edf3;
+      --muted:       #7d8590;
+      --green:       #3fb950;
+      --green-bg:    rgba(63,185,80,.1);
+      --yellow:      #d29922;
+      --yellow-bg:   rgba(210,153,34,.1);
+      --red:         #f85149;
+      --red-bg:      rgba(248,81,73,.1);
+      --nav-h:       60px;
+      --sidebar-w:   280px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .hidden { display: none !important; }
+
+    /* ── LOGIN ─────────────────────────────── */
+    #loginSection {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+      background: var(--bg);
+      background-image: radial-gradient(ellipse at 50% 0%, rgba(124,58,237,.18) 0%, transparent 65%);
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 48px 40px;
+      width: 360px;
+      text-align: center;
+    }
+    .login-logo {
+      width: 64px; height: 64px;
+      background: var(--accent);
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 28px; font-weight: 800; color: #fff;
+      box-shadow: 0 0 32px rgba(124,58,237,.4);
+    }
+    .login-card h1 { font-size: 22px; font-weight: 700; }
+    .login-card .sub { color: var(--muted); font-size: 14px; margin: 6px 0 28px; }
+    .login-card input[type=password] {
+      width: 100%; padding: 11px 14px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); font-size: 15px; outline: none;
+      transition: border-color .2s;
+    }
+    .login-card input[type=password]:focus { border-color: var(--accent); }
+    .btn-primary {
+      width: 100%; margin-top: 12px; padding: 11px;
+      background: var(--accent); border: none; border-radius: 8px;
+      color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-primary:hover { background: var(--accent-h); }
+    .login-err { color: var(--red); font-size: 13px; margin-top: 10px; }
+
+    /* ── NAVBAR ────────────────────────────── */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--nav-h);
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 20px; gap: 12px; z-index: 100;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 16px; font-weight: 700; min-width: 170px;
+    }
+    .ttn-icon {
+      width: 32px; height: 32px; background: var(--accent); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 800; color: #fff;
+    }
+    .nav-meta {
+      flex: 1; display: flex; gap: 24px;
+      font-size: 13px; color: var(--muted);
+    }
+    .nav-meta strong { color: var(--text); }
+    .nav-actions { display: flex; align-items: center; gap: 8px; }
+    .btn-icon {
+      width: 34px; height: 34px;
+      background: none; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
+    }
+    .btn-icon:hover { background: var(--surface2); border-color: var(--accent); }
+    .btn-icon.spinning { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-outline {
+      padding: 6px 14px; background: none; border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted); font-size: 13px; cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-outline:hover { border-color: var(--red); color: var(--red); }
+
+    /* ── LAYOUT ────────────────────────────── */
+    .layout {
+      display: flex;
+      height: calc(100vh - var(--nav-h));
+      margin-top: var(--nav-h);
+    }
+
+    /* ── SIDEBAR ───────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w); min-width: var(--sidebar-w);
+      background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sidebar-hdr {
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .sidebar-hdr h2 {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--muted);
+    }
+    .count-badge {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 1px 9px; font-size: 12px; color: var(--muted);
+    }
+    .device-list {
+      flex: 1; overflow-y: auto; padding: 8px;
+    }
+    .device-list::-webkit-scrollbar { width: 4px; }
+    .device-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .device-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 11px 12px; border-radius: 8px; cursor: pointer;
+      transition: background .15s; margin-bottom: 2px;
+      border: 1px solid transparent;
+    }
+    .device-item:hover { background: var(--surface2); }
+    .device-item.active {
+      background: var(--accent-glow); border-color: var(--accent);
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      margin-top: 5px; flex-shrink: 0;
+    }
+    .dot.online  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.idle    { background: var(--yellow); }
+    .dot.offline, .dot.unknown { background: var(--muted); }
+    .di-name {
+      font-size: 14px; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .di-id {
+      font-size: 11px; color: var(--muted); font-family: monospace;
+      margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .di-seen { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+    /* ── MAIN CONTENT ──────────────────────── */
+    .content { flex: 1; overflow-y: auto; padding: 24px; }
+    .error-toast {
+      position: fixed; top: 70px; right: 16px;
+      background: var(--red); color: #fff; padding: 12px 20px;
+      border-radius: 8px; font-size: 14px; z-index: 200; max-width: 400px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    }
+
+    /* ── OVERVIEW STATS ────────────────────── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px 16px;
+    }
+    .stat-card.s-online  { border-color: rgba(63,185,80,.35); background: var(--green-bg); }
+    .stat-card.s-idle    { border-color: rgba(210,153,34,.35); background: var(--yellow-bg); }
+    .stat-card.s-offline { border-color: rgba(248,81,73,.35);  background: var(--red-bg); }
+    .stat-val {
+      font-size: 38px; font-weight: 800; line-height: 1; margin-bottom: 6px;
+    }
+    .stat-card.s-online  .stat-val { color: var(--green); }
+    .stat-card.s-idle    .stat-val { color: var(--yellow); }
+    .stat-card.s-offline .stat-val { color: var(--red); }
+    .stat-lbl { font-size: 13px; color: var(--muted); }
+    .hint {
+      text-align: center; color: var(--muted); font-size: 14px; margin-top: 40px; line-height: 1.7;
+    }
+
+    /* ── DEVICE DETAIL ─────────────────────── */
+    .detail-hdr {
+      display: flex; align-items: center; gap: 16px;
+      margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border);
+    }
+    .btn-back {
+      background: none; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--muted); padding: 8px 14px; font-size: 13px; cursor: pointer;
+      white-space: nowrap; transition: all .2s;
+    }
+    .btn-back:hover { border-color: var(--accent); color: var(--text); }
+    .detail-hdr h2 { font-size: 20px; font-weight: 700; }
+    .detail-eid { font-size: 12px; color: var(--muted); font-family: monospace; margin-top: 3px; }
+    .loading { text-align: center; color: var(--muted); padding: 48px; }
+
+    /* ── META GRID ─────────────────────────── */
+    .meta-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;
+    }
+    .meta-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .meta-lbl {
+      font-size: 11px; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--muted);
+    }
+    .meta-val { font-size: 15px; font-weight: 500; }
+    .status-pill {
+      display: inline-block; border-radius: 4px; padding: 2px 8px;
+      font-size: 13px; font-weight: 600;
+    }
+    .status-pill.online  { background: var(--green-bg);  color: var(--green);  border: 1px solid rgba(63,185,80,.3); }
+    .status-pill.idle    { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(210,153,34,.3); }
+    .status-pill.offline,
+    .status-pill.unknown { background: var(--red-bg);    color: var(--red);    border: 1px solid rgba(248,81,73,.3); }
+
+    /* ── PAYLOAD TABLE ─────────────────────── */
+    .sec-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--muted); margin-bottom: 10px;
+    }
+    .payload-tbl {
+      width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 24px;
+    }
+    .payload-tbl th {
+      text-align: left; padding: 9px 14px;
+      background: var(--surface2); color: var(--muted);
+      font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--border);
+    }
+    .payload-tbl th:first-child { border-radius: 8px 0 0 0; }
+    .payload-tbl th:last-child  { border-radius: 0 8px 0 0; }
+    .payload-tbl td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+    .payload-tbl tr:last-child td { border-bottom: none; }
+    .payload-tbl tbody tr:hover { background: var(--surface2); }
+    .f-key { font-family: monospace; color: var(--accent); }
+    .f-val { font-family: monospace; }
+    .raw-payload {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px; font-family: monospace;
+      font-size: 13px; word-break: break-all; margin-bottom: 24px;
+    }
+
+    /* ── CHART ─────────────────────────────── */
+    .chart-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px;
+    }
+    .chart-wrap { height: 300px; position: relative; }
+
+    /* ── NO DATA / ERROR ───────────────────── */
+    .no-data {
+      text-align: center; color: var(--muted); padding: 60px 20px;
+      font-size: 15px; line-height: 1.8;
+    }
+    .err-box {
+      background: var(--red-bg); border: 1px solid rgba(248,81,73,.3);
+      border-radius: 8px; padding: 16px; color: var(--red); font-size: 14px;
+    }
+    .empty-sidebar {
+      padding: 20px; color: var(--muted); font-size: 13px; text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── LOGIN ──────────────────────────────────────────── -->
+<div id="loginSection">
+  <div class="login-card">
+    <div class="login-logo">T</div>
+    <h1>TTN Dashboard</h1>
+    <p class="sub">The Things Network</p>
+    <form id="loginForm">
+      <input type="password" id="passwordInput" placeholder="Lösenord" autocomplete="current-password" required>
+      <button type="submit" class="btn-primary">Logga in</button>
+    </form>
+    <p id="loginErr" class="login-err hidden">Fel lösenord – försök igen</p>
+  </div>
+</div>
+
+<!-- ── DASHBOARD ───────────────────────────────────────── -->
+<div id="dashboard" class="hidden">
+
+  <nav class="navbar">
+    <div class="nav-brand">
+      <div class="ttn-icon">T</div>
+      TTN Dashboard
+    </div>
+    <div class="nav-meta">
+      <span>App: <strong id="appName">–</strong></span>
+      <span>Uppdaterad: <span id="lastRefresh">–</span></span>
+    </div>
+    <div class="nav-actions">
+      <button id="refreshBtn" class="btn-icon" title="Uppdatera nu">↻</button>
+      <button id="logoutBtn" class="btn-outline">Logga ut</button>
+    </div>
+  </nav>
+
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-hdr">
+        <h2>Enheter</h2>
+        <span id="deviceCount" class="count-badge">0</span>
+      </div>
+      <div id="deviceList" class="device-list">
+        <div class="empty-sidebar">Laddar enheter…</div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="content">
+
+      <div id="errorToast" class="error-toast hidden"></div>
+
+      <!-- Overview (default view) -->
+      <div id="overview">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-val" id="statTotal">–</div>
+            <div class="stat-lbl">Totalt enheter</div>
+          </div>
+          <div class="stat-card s-online">
+            <div class="stat-val" id="statOnline">–</div>
+            <div class="stat-lbl">Online (&lt; 1 h)</div>
+          </div>
+          <div class="stat-card s-idle">
+            <div class="stat-val" id="statIdle">–</div>
+            <div class="stat-lbl">Inaktiv (&lt; 24 h)</div>
+          </div>
+          <div class="stat-card s-offline">
+            <div class="stat-val" id="statOffline">–</div>
+            <div class="stat-lbl">Offline</div>
+          </div>
+        </div>
+        <p class="hint">
+          Välj en enhet i listan till vänster för att se detaljer och historisk data.<br>
+          <span style="font-size:12px">Kräver att <em>Storage Integration</em> är aktiverat i TTN Console.</span>
+        </p>
+      </div>
+
+      <!-- Device detail -->
+      <div id="deviceDetail" class="hidden">
+        <div class="detail-hdr">
+          <button id="backBtn" class="btn-back">← Tillbaka</button>
+          <div>
+            <h2 id="detailName">–</h2>
+            <div class="detail-eid" id="detailId">–</div>
+          </div>
+        </div>
+        <div id="detailLoading" class="loading hidden">Hämtar data…</div>
+        <div id="detailContent"></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
